@@ -151,37 +151,40 @@ jobs:
       # Determine badge level from issue labels or body
       - name: Determine badge level
         id: badge-level
-        run: |
-          labels="${{ join(github.event.issue.labels.*.name, ' ') }}"
-          body="${{ github.event.issue.body }}"
-          
-          # Check labels first
-          if [[ "$labels" == *"beginner"* ]]; then
-            echo "level=beginner" >> $GITHUB_OUTPUT
-            echo "badge_file=Beginner.png" >> $GITHUB_OUTPUT
-          elif [[ "$labels" == *"intermediate"* ]]; then
-            echo "level=intermediate" >> $GITHUB_OUTPUT
-            echo "badge_file=Intermediate.png" >> $GITHUB_OUTPUT
-          elif [[ "$labels" == *"advanced"* ]]; then
-            echo "level=advanced" >> $GITHUB_OUTPUT
-            echo "badge_file=Advanced.png" >> $GITHUB_OUTPUT
-          else
-            # Extract level from "**My Level:**" field if no labels
-            if echo "$body" | grep -iq "My Level"; then
-              level=$(echo "$body" | grep -i "My Level" | head -1 | sed 's/.*My Level[^a-zA-Z]*\([a-zA-Z]*\).*/\1/')
-              level_lower=$(echo "$level" | tr '[:upper:]' '[:lower:]')
-              if [[ "$level_lower" == "beginner" ]]; then
-                echo "level=beginner" >> $GITHUB_OUTPUT
-                echo "badge_file=Beginner.png" >> $GITHUB_OUTPUT
-              elif [[ "$level_lower" == "intermediate" ]]; then
-                echo "level=intermediate" >> $GITHUB_OUTPUT
-                echo "badge_file=Intermediate.png" >> $GITHUB_OUTPUT
-              elif [[ "$level_lower" == "advanced" ]]; then
-                echo "level=advanced" >> $GITHUB_OUTPUT
-                echo "badge_file=Advanced.png" >> $GITHUB_OUTPUT
-              fi
-            fi
-          fi
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = context.payload.issue.labels.map(l => l.name.toLowerCase()).join(' ');
+            const body = context.payload.issue.body || '';
+            
+            let level = '';
+            let badgeFile = '';
+            
+            if (labels.includes('beginner')) {
+              level = 'beginner';
+              badgeFile = 'Beginner.png';
+            } else if (labels.includes('intermediate')) {
+              level = 'intermediate';
+              badgeFile = 'Intermediate.png';
+            } else if (labels.includes('advanced')) {
+              level = 'advanced';
+              badgeFile = 'Advanced.png';
+            } else {
+              const levelMatch = body.match(/\*\*My\s+Level:\*\*\s*([a-zA-Z]+)/i);
+              if (levelMatch) {
+                level = levelMatch[1].toLowerCase();
+                if (level === 'beginner') {
+                  badgeFile = 'Beginner.png';
+                } else if (level === 'intermediate') {
+                  badgeFile = 'Intermediate.png';
+                } else if (level === 'advanced') {
+                  badgeFile = 'Advanced.png';
+                }
+              }
+            }
+            
+            core.setOutput('level', level);
+            core.setOutput('badge_file', badgeFile);
 
       # Add completed badge label
       - name: Add completion badge labels
